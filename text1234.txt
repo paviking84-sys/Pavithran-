@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Interactive Form — Client-side Validation</title>
+<style>
+  :root{
+    --bg:#0f1724;
+    --card:#0b1220;
+    --muted:#94a3b8;
+    --accent:#6ee7b7;
+    --danger:#ff6b6b;
+    --glass: rgba(255,255,255,0.03);
+    --radius:14px;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  }
+
+  /* Basic page */
+  html,body{height:100%}
+  body{
+    margin:0;
+    background: linear-gradient(180deg,#071029 0%, #071a2d 60%);
+    color:#e6eef8;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:28px;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* Card */
+  .card{
+    width:100%;
+    max-width:900px;
+    background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));
+    border-radius:var(--radius);
+    box-shadow: 0 8px 30px rgba(2,6,23,0.6);
+    padding:28px;
+    display:grid;
+    grid-template-columns: 1fr 420px;
+    gap:24px;
+    align-items:start;
+  }
+
+  /* Left content (form) */
+  .form-title{
+    margin:0 0 6px 0;
+    font-size:20px;
+    letter-spacing:0.2px;
+  }
+  .form-sub{color:var(--muted); margin:0 0 18px 0; font-size:13px}
+
+  form{display:grid; gap:12px}
+  label{display:block; font-size:13px; margin-bottom:6px}
+  .field{
+    background:var(--glass);
+    border-radius:12px;
+    padding:10px;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    border:1px solid rgba(255,255,255,0.03);
+  }
+  input[type="text"], input[type="email"], input[type="password"], input[type="tel"], input[type="date"], select, textarea{
+    font-size:14px;
+    padding:10px 12px;
+    border-radius:8px;
+    border:1px solid rgba(255,255,255,0.06);
+    background:transparent;
+    color:inherit;
+    outline:none;
+    transition:border-color .15s, box-shadow .15s;
+    width:100%;
+    box-sizing:border-box;
+  }
+  input:focus, select:focus, textarea:focus{
+    border-color:var(--accent);
+    box-shadow: 0 4px 18px rgba(110,231,183,0.08);
+  }
+
+  .hint{font-size:12px; color:var(--muted)}
+  .row{display:flex; gap:12px}
+  .col{flex:1}
+
+  .error {
+    color:var(--danger);
+    font-size:12px;
+    min-height:16px;
+  }
+  .valid {
+    color:var(--accent);
+    font-size:12px;
+    min-height:16px;
+  }
+
+  /* Password strength bar */
+  .pw-meter{
+    height:8px;
+    border-radius:999px;
+    background:rgba(255,255,255,0.04);
+    overflow:hidden;
+  }
+  .pw-meter > i{
+    display:block;
+    height:100%;
+    width:0%;
+    transition:width .25s ease;
+    background:linear-gradient(90deg, #ffb86b, #6ee7b7);
+  }
+  .pw-desc{font-size:12px}
+
+  /* Right column: preview / tips */
+  .aside{
+    padding:18px;
+    border-radius:10px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border:1px solid rgba(255,255,255,0.03);
+    color:var(--muted);
+    font-size:13px;
+  }
+  .aside h3{margin:0 0 10px 0; font-size:15px; color:#e6eef8}
+  ul.tips{margin:0; padding-left:18px}
+  .badge{
+    display:inline-block;
+    font-size:12px;
+    background:rgba(110,231,183,0.08);
+    color:var(--accent);
+    padding:6px 10px;
+    border-radius:999px;
+    margin-right:8px;
+  }
+
+  /* Buttons */
+  .actions{display:flex; gap:10px; margin-top:6px; align-items:center}
+  button{
+    border:0;
+    padding:10px 14px;
+    border-radius:10px;
+    background:linear-gradient(90deg,#20c997,#2dd4bf);
+    color:#042022;
+    font-weight:600;
+    cursor:pointer;
+    box-shadow: 0 6px 18px rgba(45,212,191,0.12);
+  }
+  button[disabled]{opacity:.5; cursor:not-allowed}
+
+  /* Small utilities */
+  .small{font-size:12px}
+  .success-panel{
+    margin-top:12px;
+    padding:12px;
+    border-radius:10px;
+    background:linear-gradient(90deg, rgba(110,231,183,0.06), rgba(110,231,183,0.02));
+    border:1px solid rgba(110,231,183,0.06);
+    color:var(--accent);
+    display:none;
+  }
+
+  /* Responsive */
+  @media (max-width:920px){
+    .card{grid-template-columns: 1fr; padding:18px}
+    .aside{order:2}
+  }
+
+  footer{margin-top:10px; color:var(--muted); font-size:12px}
+</style>
+</head>
+<body>
+  <main class="card" role="main" aria-labelledby="form-heading">
+    <section aria-label="registration form">
+      <h1 id="form-heading" class="form-title">Create your account</h1>
+      <p class="form-sub">Accessible, user-friendly client-side validation. Try leaving fields empty or entering invalid values to see live feedback.</p>
+
+      <form id="signup" novalidate>
+        <!-- name -->
+        <div class="field" aria-live="polite">
+          <label for="fullname">Full name <span aria-hidden="true">*</span></label>
+          <input id="fullname" name="fullname" type="text" autocomplete="name"
+                 placeholder="e.g. Priya Sharma" required minlength="2" />
+          <div id="fullname-msg" class="error" aria-hidden="false"></div>
+        </div>
+
+        <!-- email & phone -->
+        <div class="row">
+          <div class="col">
+            <div class="field" aria-live="polite">
+              <label for="email">Email address <span aria-hidden="true">*</span></label>
+              <input id="email" name="email" type="email" autocomplete="email" placeholder="name@example.com" required />
+              <div id="email-msg" class="error"></div>
+            </div>
+          </div>
+          <div class="col">
+            <div class="field" aria-live="polite">
+              <label for="phone">Phone number <span class="hint">(optional)</span></label>
+              <input id="phone" name="phone" type="tel" inputmode="tel" placeholder="+91 98765 43210" pattern="^\+?[0-9\s\-]{7,20}$" />
+              <div id="phone-msg" class="error"></div>
+              <div class="hint">Accepts digits, spaces, dashes, optional + country code</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- dob & role -->
+        <div class="row">
+          <div class="col">
+            <div class="field" aria-live="polite">
+              <label for="dob">Date of birth <span aria-hidden="true">*</span></label>
+              <input id="dob" name="dob" type="date" required aria-describedby="dob-hint" />
+              <div id="dob-msg" class="error"></div>
+              <div id="dob-hint" class="hint">You must be at least 13 years old.</div>
+            </div>
+          </div>
+          <div class="col">
+            <div class="field">
+              <label for="role">Account type</label>
+              <select id="role" name="role" aria-label="Account type">
+                <option value="">Select (optional)</option>
+                <option>Personal</option>
+                <option>Business</option>
+                <option>Developer</option>
+              </select>
+              <div class="hint">Choose what best describes your use.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- password -->
+        <div class="field" aria-live="polite">
+          <label for="password">Password <span aria-hidden="true">*</span></label>
+          <input id="password" name="password" type="password" autocomplete="new-password"
+                 placeholder="At least 8 characters, mix of letters and numbers" required minlength="8" />
+          <div class="pw-meter" aria-hidden="true"><i id="pw-bar"></i></div>
+          <div class="row" style="align-items:center;">
+            <div class="col pw-desc" id="pw-desc">Password strength: <strong id="pw-text">—</strong></div>
+            <div style="text-align:right" class="small hint">Use 12+ characters for better security.</div>
+          </div>
+          <div id="password-msg" class="error"></div>
+        </div>
+
+        <!-- confirm -->
+        <div class="field" aria-live="polite">
+          <label for="confirm">Confirm password <span aria-hidden="true">*</span></label>
+          <input id="confirm" name="confirm" type="password" autocomplete="new-password" required />
+          <div id="confirm-msg" class="error"></div>
+        </div>
+
+        <!-- terms -->
+        <div class="field" aria-live="polite">
+          <label style="display:flex; align-items:center; gap:10px;">
+            <input id="terms" name="terms" type="checkbox" required />
+            <span>I agree to the <a href="#" tabindex="-1">Terms & Privacy</a>.</span>
+          </label>
+          <div id="terms-msg" class="error"></div>
+        </div>
+
+        <!-- actions -->
+        <div class="actions">
+          <button id="submitBtn" type="submit">Create account</button>
+          <button id="resetBtn" type="button" style="background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted)">Reset</button>
+          <div id="loading" class="small" style="margin-left:8px;display:none">Submitting…</div>
+        </div>
+
+        <div id="success" class="success-panel" role="status" aria-live="polite"></div>
+      </form>
+
+      <footer aria-hidden="true">Form built with modern JS validation — fully client-side.</footer>
+    </section>
+
+    <aside class="aside" aria-label="validation tips">
+      <h3>Validation & accessibility tips</h3>
+      <p><span class="badge">Live</span>Inline, real-time error messages (also announced to screen readers).</p>
+      <ul class="tips">
+        <li>Fields marked required show clear messages and focus on first error when submitting.</li>
+        <li>Password strength is estimated with common heuristics — length, variety of characters.</li>
+        <li>Date-of-birth enforces a minimum age (13 by default).</li>
+        <li>All inputs use semantic elements and ARIA where necessary for assistive tech.</li>
+      </ul>
+
+      <hr style="margin:12px 0; opacity:0.06" />
+      <h3>Try it</h3>
+      <p class="small">Type an invalid email, short password, or uncheck terms and press <strong>Create account</strong>.</p>
+    </aside>
+  </main>
+
+<script>
+/*
+  Interactive form validation script
+  - Uses Constraint Validation API + custom rules
+  - Provides live, debounced feedback
+  - Accessible: moves focus to first invalid field on submit
+*/
+
+/* Helpers */
+const $ = (sel, ctx=document) => ctx.querySelector(sel);
+const $$ = (sel, ctx=document) => Array.from(ctx.querySelectorAll(sel));
+const debounce = (fn, ms=250) => {
+  let t; return (...args) => { clearTimeout(t); t = setTimeout(()=>fn(...args), ms); };
+};
+
+/* Elements */
+const form = $('#signup');
+const submitBtn = $('#submitBtn');
+const resetBtn = $('#resetBtn');
+const loading = $('#loading');
+const success = $('#success');
+
+const fields = {
+  fullname: $('#fullname'),
+  email: $('#email'),
+  phone: $('#phone'),
+  dob: $('#dob'),
+  password: $('#password'),
+  confirm: $('#confirm'),
+  terms: $('#terms')
+};
+
+const msgs = {
+  fullname: $('#fullname-msg'),
+  email: $('#email-msg'),
+  phone: $('#phone-msg'),
+  dob: $('#dob-msg'),
+  password: $('#password-msg'),
+  confirm: $('#confirm-msg'),
+  terms: $('#terms-msg')
+};
+
+/* Validation specifics */
+
+// Age check (at least minYears)
+function validateDOB(value, minYears=13){
+  if(!value) return {ok:false, reason:'Please enter your date of birth.'};
+  const dob = new Date(value);
+  if(Number.isNaN(dob.getTime())) return {ok:false, reason:'Invalid date.'};
+  const today = new Date();
+  const cutoff = new Date(today.getFullYear() - minYears, today.getMonth(), today.getDate());
+  if(dob > cutoff) return {ok:false, reason:`You must be at least ${minYears} years old.`};
+  return {ok:true};
+}
+
+// Simple phone pattern check
+function validatePhone(value){
+  if(!value) return {ok:true}; // optional
+  const re = /^\+?[0-9\s\-]{7,20}$/;
+  return {ok: re.test(value), reason:'Phone number contains invalid characters or is too short.'};
+}
+
+// Email additional sanity check
+function validateEmail(value){
+  if(!value) return {ok:false, reason:'Email is required.'};
+  // rely primarily on input[type=email] but do a simple extra check
+  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return {ok: re.test(value), reason:'Please enter a valid email address.'};
+}
+
+// Password strength scoring (basic)
+function passwordScore(pw){
+  if(!pw) return 0;
+  let score=0;
+  if(pw.length >= 8) score += 1;
+  if(pw.length >= 12) score += 1;
+  if(/[a-z]/.test(pw) && /[A-Z]/.test(pw)) score += 1;
+  if(/\d/.test(pw)) score += 1;
+  if(/[^A-Za-z0-9]/.test(pw)) score += 1;
+  return score; // 0..5
+}
+function pwDescription(score){
+  if(score <= 1) return {text:'Very weak', pct:16};
+  if(score === 2) return {text:'Weak', pct:34};
+  if(score === 3) return {text:'Fair', pct:56};
+  if(score === 4) return {text:'Strong', pct:78};
+  return {text:'Very strong', pct:100};
+}
+
+/* UI updates */
+const pwBar = $('#pw-bar');
+const pwText = $('#pw-text');
+
+function updatePasswordUI(){
+  const pw = fields.password.value || '';
+  const score = passwordScore(pw);
+  const desc = pwDescription(score);
+  pwBar.style.width = desc.pct + '%';
+  pwText.textContent = desc.text;
+}
+
+/* Validate single field; returns boolean valid */
+function validateField(name){
+  const el = fields[name];
+  const value = el.value && el.value.trim();
+  let res = {ok:true, reason:''};
+
+  switch(name){
+    case 'fullname':
+      if(!value) res = {ok:false, reason:'Full name is required.'};
+      else if(value.length < 2) res = {ok:false, reason:'Name must be at least 2 characters.'};
+      break;
+
+    case 'email':
+      res = validateEmail(value);
+      break;
+
+    case 'phone':
+      res = validatePhone(value);
+      break;
+
+    case 'dob':
+      res = validateDOB(value, 13);
+      break;
+
+    case 'password':
+      if(!value) res = {ok:false, reason:'Password is required.'};
+      else if(value.length < 8) res = {ok:false, reason:'Password must be 8 or more characters.'};
+      else {
+        // encourage stronger password
+        const score = passwordScore(value);
+        if(score <= 1) res = {ok:false, reason:'Password is too weak — add numbers, symbols, mixed-case, or make it longer.'};
+      }
+      updatePasswordUI();
+      break;
+
+    case 'confirm':
+      const pw = fields.password.value || '';
+      if(!value) res = {ok:false, reason:'Please confirm your password.'};
+      else if(value !== pw) res = {ok:false, reason:'Passwords do not match.'};
+      break;
+
+    case 'terms':
+      if(!fields.terms.checked) res = {ok:false, reason:'You must agree to the Terms.'};
+      break;
+  }
+
+  // update message
+  const msgEl = msgs[name];
+  if(res.ok){
+    msgEl.className = 'valid';
+    msgEl.textContent = (name === 'phone' && (!value)) ? '' : 'Looks good.';
+  } else {
+    msgEl.className = 'error';
+    msgEl.textContent = res.reason;
+  }
+
+  // set aria-invalid on field(s)
+  if(name === 'terms'){
+    fields.terms.setAttribute('aria-invalid', !res.ok);
+  } else {
+    if(res.ok) el.removeAttribute('aria-invalid');
+    else el.setAttribute('aria-invalid','true');
+  }
+  return res.ok;
+}
+
+/* Debounced live validation handlers */
+const liveValidate = debounce((e) => {
+  const name = e.target.id;
+  if(!name) return;
+  validateField(name);
+}, 220);
+
+/* Attach events */
+Object.values(fields).forEach(el => {
+  if(!el) return;
+  // live input validation (text-like)
+  if(el.tagName.toLowerCase() !== 'input' || el.type === 'checkbox') {
+    // for checkboxes and selects, validate on change
+    el.addEventListener('change', (e) => validateField(e.target.id));
+  } else {
+    el.addEventListener('input', liveValidate);
+    // also validate on blur immediately
+    el.addEventListener('blur', (e) => validateField(e.target.id));
+  }
+});
+
+/* On submit: validate all, focus to first invalid, show simulated submission */
+form.addEventListener('submit', function(ev){
+  ev.preventDefault();
+  // validate all fields synchronously
+  updatePasswordUI();
+  const order = ['fullname','email','phone','dob','password','confirm','terms'];
+  let firstInvalid = null;
+  let allValid = true;
+  for(const name of order){
+    const ok = validateField(name);
+    if(!ok && !firstInvalid) firstInvalid = fields[name];
+    allValid = allValid && ok;
+  }
+
+  if(!allValid){
+    // focus first invalid
+    if(firstInvalid && typeof firstInvalid.focus === 'function'){
+      firstInvalid.focus();
+    }
+    success.style.display = 'none';
+    return;
+  }
+
+  // simulate submission
+  submitBtn.disabled = true;
+  loading.style.display = 'inline';
+  success.style.display = 'none';
+
+  // here in a real app we'd send data to a server via fetch()
+  setTimeout(()=>{
+    submitBtn.disabled = false;
+    loading.style.display = 'none';
+    success.style.display = 'block';
+    success.innerHTML = '<strong>Account created!</strong> We sent a confirmation to ' + (fields.email.value || 'your email') + '.';
+    form.reset();
+    pwBar.style.width = '0%';
+    pwText.textContent = '—';
+    // clear messages
+    Object.values(msgs).forEach(m => { m.textContent=''; m.className=''; });
+    // return focus to success for a11y
+    success.focus?.();
+  }, 900);
+});
+
+/* Reset button */
+resetBtn.addEventListener('click', () => {
+  form.reset();
+  Object.values(msgs).forEach(m => { m.textContent=''; m.className=''; });
+  pwBar.style.width = '0%';
+  pwText.textContent = '—';
+  success.style.display = 'none';
+});
+
+/* Accessibility: keyboard submit via Enter on confirm */
+fields.confirm.addEventListener('keydown', (e) => {
+  if(e.key === 'Enter') form.requestSubmit();
+});
+
+/* Initialize any UI */
+updatePasswordUI();
+
+/* Optional: further progressive enhancement could include:
+   - stronger zxcvbn-style password estimator (3rd party)
+   - server-side verification on submit
+   - masked phone formatting as-you-type
+*/
+</script>
+</body>
+</html>
